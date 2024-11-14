@@ -13,7 +13,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 #아두이노 캠화면 스트리밍
 def streaming_thread():
-    global img, haar_img    
+    global img, haar_img, half_img
     global img_flag
     img_flag=0
     
@@ -31,9 +31,6 @@ def streaming_thread():
                 jpg=buffer[head:end+2]
                 buffer=buffer[end+2:]
                 img=cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
-                
-                img=cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                
               
                 height, width, c = img.shape
                 
@@ -50,14 +47,52 @@ def streaming_thread():
                         face_center = (x +(w // 2), y + (h // 2))
                         cv2.circle(haar_img, face_center, 5, (0, 0, 255), -1)
                         cv2.putText(haar_img, "Face", (x, y - 5), cv2.FONT_HERSHEY_PLAIN, 1.5, (b, g, r), 2)
-                
+                    haar_img=cv2.cvtColor(haar_img, cv2.COLOR_BGR2RGB)
                     qHImg=QImage(haar_img.data,width,height,width*c,QImage.Format_RGB888)
                     pixmap=QPixmap.fromImage(qHImg)
+                    label2.resize(width,height)
+                    label2.setPixmap(pixmap)  
+                
                 elif img_flag==0:
+                    img=cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                     qImg=QImage(img.data,width,height,width*c,QImage.Format_RGB888)
                     pixmap=QPixmap.fromImage(qImg)
-                label2.resize(width,height)
-                label2.setPixmap(pixmap)
+                    label2.resize(width,height)
+                    label2.setPixmap(pixmap)
+                
+                elif img_flag==3:
+                    half_img = img[height // 2:, :]
+
+                    lower_bound = np.array([0, 0, 0])
+                    upper_bound = np.array([255, 255, 80])
+                    mask = cv2.inRange(half_img, lower_bound, upper_bound)
+
+                    M = cv2.moments(mask)
+                    
+                    if M["m00"] != 0:
+                        cX = int(M["m10"] / M["m00"])
+                        cY = int(M["m01"] / M["m00"])
+                    else:
+                        cX, cY = 0, 0
+                    center_offset = width // 2 - cX
+
+                    cv2.circle(half_img, (cX, cY), 10, (0, 255, 0), -1)
+                    h,w,c1= half_img.shape
+                    half_img=cv2.cvtColor(half_img, cv2.COLOR_BGR2RGB)
+                    qImg_half=QImage(half_img.data,w,h,w*c1,QImage.Format_RGB888)
+                    pixmap=QPixmap.fromImage(qImg_half)
+                    label2.resize(w,h)
+                    label2.setPixmap(pixmap)
+
+                    if center_offset > 10:
+                        print("오른쪽")
+                        right()
+                    elif center_offset < -10:
+                        print("왼쪽")
+                        left()
+                    else:
+                        print("직진")
+                        forward()
 
         except:
             print("error")
@@ -107,8 +142,13 @@ class MyApp(QMainWindow):
         elif e.key() == Qt.Key_H:
             if img_flag == 1:
                 img_flag= 0
-            elif img_flag !=1:
+            elif img_flag!=1:
                 img_flag=1
+        elif e.key() == Qt.Key_T:
+            if img_flag == 3:
+                img_flag=0
+            elif img_flag!=3:
+                img_flag=3
     def keyReleaseEvent(self,e):
         print("뗌!")
         stop()
@@ -120,7 +160,7 @@ class QPushButton(QPushButton):
                           "background-color: #2f4468")
 
 global ip 
-ip='192.168.137.207'
+ip='192.168.137.50'
 
 app= QApplication(sys.argv)
 win= MyApp()
