@@ -11,11 +11,14 @@ import random
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
+global ip 
+ip='192.168.137.232'
+
 #아두이노 캠화면 스트리밍
 def streaming_thread():
     global img, haar_img, half_img
-    global img_flag
-    img_flag=0
+    global mode_flag
+    mode_flag=0
     
     stream=urlopen('http://'+ip+':81/stream')
     buffer=b''
@@ -24,8 +27,7 @@ def streaming_thread():
         buffer+=stream.read(4096)
         head=buffer.find(b'\xff\xd8')
         end=buffer.find(b'\xff\xd9')
-        cascade_face_detector = cv2.CascadeClassifier("models/haarcascade_frontalface_default.xml")
-
+        
         try:
             if head>-1 and end>-1:
                 jpg=buffer[head:end+2]
@@ -33,8 +35,15 @@ def streaming_thread():
                 img=cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
               
                 height, width, c = img.shape
-                
-                if img_flag ==1:
+                               
+                if mode_flag==0:
+                    img=cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    qImg=QImage(img.data,width,height,width*c,QImage.Format_RGB888)
+                    pixmap=QPixmap.fromImage(qImg)
+                    label2.resize(width,height)
+                    label2.setPixmap(pixmap)
+                elif mode_flag ==1:
+                    cascade_face_detector = cv2.CascadeClassifier("models/haarcascade_frontalface_default.xml")
                     haar_img=img
                     image_center = (width // 2, height // 2)
                     cv2.circle(haar_img, image_center, 5, (0, 255, 0), -1)
@@ -53,14 +62,7 @@ def streaming_thread():
                     label2.resize(width,height)
                     label2.setPixmap(pixmap)  
                 
-                elif img_flag==0:
-                    img=cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                    qImg=QImage(img.data,width,height,width*c,QImage.Format_RGB888)
-                    pixmap=QPixmap.fromImage(qImg)
-                    label2.resize(width,height)
-                    label2.setPixmap(pixmap)
-                
-                elif img_flag==3:
+                elif mode_flag==2:
                     half_img = img[height // 2:, :]
 
                     lower_bound = np.array([0, 0, 0])
@@ -122,13 +124,28 @@ def speed60():
 def speed80():
     urlopen('http://'+ip+"/action?go=speed80")  
 def speed100():
-    urlopen('http://'+ip+"/action?go=speed100")  
+    urlopen('http://'+ip+"/action?go=speed100") 
+
+def haar_click():
+    global mode_flag
+    if mode_flag == 1:
+        mode_flag= 0
+    elif mode_flag!=1:
+        mode_flag=1
+def AI_click():
+    global mode_flag
+    if mode_flag == 2:
+        mode_flag=0
+    elif mode_flag!=2:
+        mode_flag=2
+def YOLO_click():
+    print("YOLO")
 
 class MyApp(QMainWindow):
     def __init__(self):
             super().__init__()
     def keyPressEvent(self, e):
-        global img_flag
+        global mode_flag
         if e.key() == Qt.Key_W:
             forward()
         elif e.key() == Qt.Key_S:
@@ -140,17 +157,16 @@ class MyApp(QMainWindow):
         elif e.key() == Qt.Key_Space:
             stop()
         elif e.key() == Qt.Key_H:
-            if img_flag == 1:
-                img_flag= 0
-            elif img_flag!=1:
-                img_flag=1
+            if mode_flag == 1:
+                mode_flag= 0
+            elif mode_flag!=1:
+                mode_flag=1
         elif e.key() == Qt.Key_T:
-            if img_flag == 3:
-                img_flag=0
-            elif img_flag!=3:
-                img_flag=3
+            if mode_flag == 2:
+                mode_flag=0
+            elif mode_flag!=2:
+                mode_flag=2
     def keyReleaseEvent(self,e):
-        print("뗌!")
         stop()
 
 class QPushButton(QPushButton):
@@ -158,9 +174,6 @@ class QPushButton(QPushButton):
         super().__init__(parent)
         self.setStyleSheet("color: white;"
                           "background-color: #2f4468")
-
-global ip 
-ip='192.168.137.50'
 
 app= QApplication(sys.argv)
 win= MyApp()
@@ -214,6 +227,14 @@ hbox2.addStretch(1)
 
 btn_backward=QPushButton('Backward')
 
+hbox3=QHBoxLayout()
+btn_haar=QPushButton('Haar')
+btn_AI=QPushButton('AI Mode')
+btn_YOLO=QPushButton('yolo')
+hbox3.addWidget(btn_haar)
+hbox3.addWidget(btn_AI)
+hbox3.addWidget(btn_YOLO)
+
 grid.addWidget(label1, 0, 0,alignment=Qt.AlignHCenter)
 
 grid.addWidget(label2, 1, 0,alignment=Qt.AlignHCenter)
@@ -224,6 +245,8 @@ grid.addWidget(btn_forward, 3, 0,alignment=Qt.AlignHCenter)
 
 grid.addLayout(hbox2,4,0)
 grid.addWidget(btn_backward, 5, 0,alignment=Qt.AlignHCenter)
+
+grid.addLayout(hbox3,6,0)
 
 deamon_thread=threading.Thread(target=streaming_thread)
 deamon_thread.daemon=True
@@ -247,6 +270,9 @@ btn_speed50.clicked.connect(speed50)
 btn_speed60.clicked.connect(speed60)
 btn_speed80.clicked.connect(speed80)
 btn_speed100.clicked.connect(speed100)
+btn_haar.clicked.connect(haar_click)
+btn_AI.clicked.connect(AI_click)
+btn_YOLO.clicked.connect(YOLO_click)
 
 sys.exit(app.exec_())
         
