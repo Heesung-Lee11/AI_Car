@@ -47,6 +47,8 @@ class WebcamApp(QMainWindow):
         # 타이머 설정 (웹캠 캡처 및 갱신 주기)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frame)
+        #타이머시작을해줘야지
+        self.timer.start(5)
 
         self.current_mode = 'original'  # 현재 영상 처리 모드 (기본값: 원본 영상)
         self.is_video_on = False
@@ -54,19 +56,21 @@ class WebcamApp(QMainWindow):
     def set_mode_original(self):
         """원본 영상 모드"""
         self.current_mode = 'original'
+        print("원본영상모드")
 
     def set_mode_left_half(self):
         """왼쪽 반 화면 모드"""
         self.current_mode = 'left_half'
+        print("반쪽")
 
     def set_mode_shapes(self):
         """사각형과 삼각형 그리기 모드"""
         self.current_mode = 'shapes'
+        print("그리기모드")
 
     def update_frame(self):
         # 웹캠에서 프레임을 읽음
         ret, frame = self.cap.read()
-
         if not ret:
             print("웹캠에서 프레임을 읽을 수 없습니다.")
             return
@@ -81,7 +85,6 @@ class WebcamApp(QMainWindow):
 
         # BGR에서 RGB로 변환 (OpenCV는 기본 BGR 포맷을 사용)
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
         # QImage 객체로 변환
         height, width, channels = frame_rgb.shape
         bytes_per_line = channels * width
